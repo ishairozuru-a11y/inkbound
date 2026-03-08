@@ -1479,7 +1479,7 @@ ${nextEvent ? `- Work toward this upcoming plot point naturally (but don't rush 
         'X-Title': 'Inkbound Story Engine'
       },
       body: JSON.stringify({
-        model: 'meta-llama/llama-3.1-8b-instruct:free',
+        model: 'meta-llama/llama-3.3-70b-instruct:free',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
@@ -1555,7 +1555,7 @@ async function updateTrackerFromAI() {
         'X-Title': 'Inkbound Story Engine'
       },
       body: JSON.stringify({
-        model: 'meta-llama/llama-3.1-8b-instruct:free',
+        model: 'meta-llama/llama-3.3-70b-instruct:free',
         messages: [{
           role: 'user',
           content: `Based on this story excerpt, return ONLY a JSON object (no other text) with:
