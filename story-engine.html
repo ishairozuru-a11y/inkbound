@@ -1,0 +1,1620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inkbound — AI Story Engine</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Nunito:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0c0a0f;
+  --bg2: #13101a;
+  --bg3: #1c1728;
+  --bg4: #241e33;
+  --border: #2d2540;
+  --border2: #3d3455;
+  --accent: #d4a0ff;
+  --accent2: #ff8fab;
+  --accent3: #ffb347;
+  --text: #ede8f5;
+  --text2: #b8adc8;
+  --muted: #7a6d8a;
+  --danger: #ff6b6b;
+  --success: #88d8a0;
+  --glow: rgba(212,160,255,0.15);
+}
+
+body {
+  font-family: 'Nunito', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 15% 50%, rgba(120,60,180,0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 60% at 85% 20%, rgba(255,143,171,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 30% at 50% 90%, rgba(80,40,140,0.1) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+#bg-image {
+  position: fixed;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+  z-index: 0;
+}
+#bg-image.active { opacity: var(--bg-opacity, 0.15); }
+
+.opacity-slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.opacity-slider-wrap input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 90px;
+  height: 4px;
+  background: var(--border2);
+  border-radius: 2px;
+  outline: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.opacity-slider-wrap input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(212,160,255,0.5);
+}
+.opacity-slider-wrap input[type="range"]:focus { box-shadow: none; }
+
+/* AGE GATE */
+#age-gate {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(135deg, #0c0a0f 0%, #1a1028 50%, #0c0a0f 100%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 24px;
+  text-align: center;
+  padding: 40px;
+}
+
+#age-gate .gate-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(32px, 6vw, 56px);
+  font-weight: 400;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 2px;
+}
+
+#age-gate p {
+  color: var(--text2);
+  font-size: 15px;
+  max-width: 420px;
+  line-height: 1.7;
+}
+
+#age-gate .gate-warning {
+  font-size: 13px;
+  color: var(--muted);
+  max-width: 360px;
+  line-height: 1.6;
+  border: 1px solid var(--border);
+  padding: 14px 18px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.02);
+}
+
+.gate-buttons { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+
+.gate-btn {
+  padding: 13px 32px;
+  border-radius: 50px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s;
+  border: none;
+  letter-spacing: 0.5px;
+}
+
+.gate-btn.yes {
+  background: linear-gradient(135deg, #7c3aed, #c084fc);
+  color: white;
+  box-shadow: 0 4px 20px rgba(124,58,237,0.4);
+}
+.gate-btn.yes:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(124,58,237,0.5); }
+
+.gate-btn.no {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+.gate-btn.no:hover { color: var(--danger); border-color: var(--danger); }
+
+/* MAIN APP */
+#app {
+  display: none;
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+}
+#app.visible { display: block; }
+
+/* TOPBAR */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background: rgba(12,10,15,0.85);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(16px);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.logo {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  font-style: italic;
+  color: var(--accent);
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* BUTTONS */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--text2);
+  font-family: 'Nunito', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(212,160,255,0.08); }
+.btn.active { border-color: var(--accent); color: var(--accent); background: rgba(212,160,255,0.12); }
+.btn.primary {
+  background: linear-gradient(135deg, #6d28d9, #a855f7);
+  border-color: transparent;
+  color: white;
+  font-weight: 600;
+  box-shadow: 0 2px 12px rgba(109,40,217,0.4);
+}
+.btn.primary:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(109,40,217,0.5); color: white; }
+.btn.danger { border-color: rgba(255,107,107,0.3); color: var(--danger); }
+.btn.danger:hover { background: rgba(255,107,107,0.1); border-color: var(--danger); }
+.btn.sm { padding: 5px 10px; font-size: 12px; }
+.btn.icon-only { padding: 7px 9px; }
+
+/* INPUTS */
+input[type="text"], input[type="password"], textarea, select {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(212,160,255,0.1);
+}
+select { cursor: pointer; }
+textarea { resize: vertical; line-height: 1.6; }
+
+/* LAYOUT */
+.layout {
+  display: grid;
+  grid-template-columns: var(--panel-left, 300px) 1fr var(--panel-right, 280px);
+  grid-template-rows: 1fr;
+  min-height: calc(100vh - 53px);
+  gap: 0;
+}
+
+.layout.hide-left { grid-template-columns: 0 1fr var(--panel-right, 280px); }
+.layout.hide-right { grid-template-columns: var(--panel-left, 300px) 1fr 0; }
+.layout.hide-both { grid-template-columns: 0 1fr 0; }
+
+/* PANELS */
+.panel {
+  background: rgba(19,16,26,0.6);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+.panel.right-panel { border-right: none; border-left: 1px solid var(--border); }
+.panel.hidden { width: 0; min-width: 0; overflow: hidden; border: none; padding: 0; }
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.panel-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.panel-body::-webkit-scrollbar { width: 4px; }
+.panel-body::-webkit-scrollbar-track { background: transparent; }
+.panel-body::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* SECTION */
+.section-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+/* CHARACTER CARDS */
+.char-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  position: relative;
+  transition: border-color 0.2s;
+}
+.char-card:hover { border-color: var(--border2); }
+
+.char-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.char-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.char-fields { display: flex; flex-direction: column; gap: 7px; }
+
+.char-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+
+.add-char-form {
+  background: var(--bg3);
+  border: 1px dashed var(--border2);
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.add-char-form.hidden { display: none; }
+
+/* MAIN STORY AREA */
+.story-main {
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  min-width: 0;
+}
+
+.story-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(12,10,15,0.4);
+  flex-wrap: wrap;
+}
+
+.story-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  gap: 14px;
+  overflow-y: auto;
+}
+
+#story-text {
+  flex: 1;
+  min-height: 300px;
+  background: rgba(19,16,26,0.5);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+  font-family: 'Playfair Display', serif;
+  font-size: 15px;
+  line-height: 1.85;
+  color: var(--text);
+  resize: none;
+  transition: border-color 0.2s;
+}
+#story-text:focus { border-color: var(--border2); }
+#story-text::placeholder { color: var(--muted); font-style: italic; font-family: 'Playfair Display', serif; }
+
+.story-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--border);
+  background: rgba(12,10,15,0.4);
+}
+
+.next-event-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+#next-event {
+  flex: 1;
+  min-height: 60px;
+  max-height: 100px;
+  font-size: 13px;
+}
+
+.continue-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn.continue-btn {
+  padding: 11px 28px;
+  font-size: 15px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #6d28d9, #c084fc, #f472b6);
+  background-size: 200% 200%;
+  animation: gradientShift 4s ease infinite;
+  border: none;
+  color: white;
+  border-radius: 50px;
+  box-shadow: 0 4px 24px rgba(192,132,252,0.35);
+  letter-spacing: 0.5px;
+}
+.btn.continue-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(192,132,252,0.5);
+  color: white;
+}
+.btn.continue-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  animation: none;
+}
+
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.token-count {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* STATUS INDICATOR */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  display: inline-block;
+  transition: background 0.3s;
+}
+.status-dot.thinking {
+  background: var(--accent3);
+  animation: pulse 1s ease infinite;
+}
+.status-dot.done { background: var(--success); }
+.status-dot.error { background: var(--danger); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+/* RIGHT PANEL - TRACKER */
+.tracker-section {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.tracker-section-header {
+  padding: 9px 12px;
+  background: rgba(255,255,255,0.03);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tracker-item {
+  padding: 9px 12px;
+  border-bottom: 1px solid rgba(45,37,64,0.5);
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.tracker-item:last-child { border-bottom: none; }
+
+.tracker-item-name {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.tracker-item-val {
+  color: var(--text2);
+  font-size: 12px;
+}
+
+/* RELATIONSHIP BAR */
+.rel-bar-wrap { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.rel-bar-track {
+  flex: 1;
+  height: 5px;
+  background: var(--bg4);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.rel-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent2), var(--accent));
+  transition: width 0.5s ease;
+}
+.rel-bar-label { font-size: 11px; color: var(--muted); min-width: 28px; text-align: right; }
+
+/* MOOD INDICATOR */
+.mood-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+}
+.mood-emoji { font-size: 22px; }
+.mood-text { font-size: 13px; color: var(--text2); }
+.mood-scale {
+  display: flex;
+  gap: 3px;
+  margin-top: 4px;
+}
+.mood-pip {
+  width: 18px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--bg4);
+  transition: background 0.4s;
+}
+.mood-pip.active-light { background: #ffeb3b; }
+.mood-pip.active-mid { background: #ff9800; }
+.mood-pip.active-dark { background: #9c27b0; }
+
+/* STATUS BADGE */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 50px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.status-badge.alive { background: rgba(136,216,160,0.15); color: var(--success); }
+.status-badge.dead { background: rgba(255,107,107,0.15); color: var(--danger); }
+.status-badge.unknown { background: rgba(122,109,138,0.2); color: var(--muted); }
+
+/* API KEY PANEL */
+.api-section {
+  background: rgba(109,40,217,0.08);
+  border: 1px solid rgba(109,40,217,0.25);
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.api-section .section-label { color: var(--accent); }
+.api-note { font-size: 11px; color: var(--muted); line-height: 1.5; }
+.api-note a { color: var(--accent); text-decoration: none; }
+.api-note a:hover { text-decoration: underline; }
+
+.api-key-row { display: flex; gap: 6px; }
+.api-key-row input { flex: 1; font-family: monospace; letter-spacing: 1px; }
+
+/* MODAL */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+
+.modal {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 16px;
+  padding: 24px;
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transform: translateY(10px);
+  transition: transform 0.2s;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.modal-overlay.open .modal { transform: translateY(0); }
+
+.modal-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  color: var(--accent);
+}
+
+.modal-footer { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* TOAST */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  padding: 12px 18px;
+  font-size: 13px;
+  z-index: 500;
+  transform: translateY(80px);
+  opacity: 0;
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  max-width: 300px;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { border-color: rgba(136,216,160,0.4); color: var(--success); }
+.toast.error { border-color: rgba(255,107,107,0.4); color: var(--danger); }
+
+/* KOFI BANNER */
+.kofi-bar {
+  background: linear-gradient(135deg, rgba(255,94,91,0.15), rgba(255,155,91,0.1));
+  border-bottom: 1px solid rgba(255,94,91,0.2);
+  padding: 8px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text2);
+}
+.kofi-bar a {
+  color: #ff6b6b;
+  font-weight: 600;
+  text-decoration: none;
+}
+.kofi-bar a:hover { text-decoration: underline; }
+
+/* THINKING ANIMATION */
+.thinking-dots::after {
+  content: '';
+  animation: dots 1.5s infinite;
+}
+@keyframes dots {
+  0% { content: ''; }
+  33% { content: '.'; }
+  66% { content: '..'; }
+  100% { content: '...'; }
+}
+
+/* RESPONSIVE */
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto;
+  }
+  .panel { border-right: none; border-bottom: 1px solid var(--border); }
+  .panel.right-panel { border-left: none; border-top: 1px solid var(--border); }
+}
+
+/* SCROLLBAR GLOBAL */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* FADE IN */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fadein { animation: fadeIn 0.4s ease forwards; }
+
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 20px;
+  color: var(--muted);
+  font-size: 13px;
+  font-style: italic;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+</style>
+</head>
+<body>
+
+<!-- AGE GATE -->
+<div id="age-gate">
+  <div class="gate-title">Inkbound</div>
+  <p>An AI-powered interactive story engine for romance, drama, and everything in between.</p>
+  <div class="gate-warning">
+    ⚠️ This platform may contain mature content including romance, drama, and adult themes. By continuing, you confirm you are 18 years of age or older.
+  </div>
+  <div class="gate-buttons">
+    <button class="gate-btn yes" onclick="enterApp()">I am 18 or older — Enter</button>
+    <button class="gate-btn no" onclick="leaveApp()">I am under 18 — Leave</button>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app">
+
+  <!-- KOFI BAR -->
+  <div class="kofi-bar">
+    ☕ Love Inkbound? <a href="https://ko-fi.com" target="_blank">Support on Ko-fi</a> to keep it free!
+  </div>
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="logo">✦ Inkbound</div>
+    <div class="topbar-right">
+      <select id="style-select" style="width:160px;">
+        <option value="romantic">💕 Romantic</option>
+        <option value="dramatic">🎭 Dramatic</option>
+        <option value="dark">🖤 Dark & Angsty</option>
+        <option value="poetic">🌸 Poetic</option>
+        <option value="casual">💬 Casual</option>
+        <option value="steamy">🔥 Steamy</option>
+        <option value="mystery">🌙 Mystery</option>
+      </select>
+      <button class="btn" onclick="togglePanel('left')" id="btn-left">◀ Setup</button>
+      <button class="btn" onclick="togglePanel('right')" id="btn-right">Tracker ▶</button>
+      <button class="btn" onclick="clearAll()" title="Clear everything">🗑️ Clear</button>
+      <button class="btn" onclick="openBgModal()">🖼️ BG</button>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span class="status-dot" id="status-dot"></span>
+        <span id="status-text" style="font-size:12px;color:var(--muted);">Ready</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- LAYOUT -->
+  <div class="layout" id="layout">
+
+    <!-- LEFT PANEL -->
+    <div class="panel" id="panel-left">
+      <div class="panel-header">
+        <span class="panel-title">Story Setup</span>
+      </div>
+      <div class="panel-body">
+
+        <!-- API KEY -->
+        <div class="api-section">
+          <div class="section-label">🔑 Your OpenRouter Key</div>
+          <div class="api-key-row">
+            <input type="password" id="api-key" placeholder="sk-or-v1-..." />
+            <button class="btn sm" onclick="toggleKeyVisibility()">👁</button>
+          </div>
+          <div class="api-note">
+            Free key from <a href="https://openrouter.ai/settings/keys" target="_blank">openrouter.ai</a> — your key stays in YOUR browser only. Never shared.
+          </div>
+        </div>
+
+        <!-- WORLD LORE -->
+        <div class="input-group">
+          <div class="section-label">📖 World & Lore</div>
+          <textarea id="world-lore" rows="5" placeholder="Describe your world, setting, timeline, rules, atmosphere... The AI will use this as the foundation for your story."></textarea>
+        </div>
+
+        <!-- CHARACTERS -->
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div class="section-label">👤 Characters</div>
+            <button class="btn sm" onclick="showAddChar()">+ Add</button>
+          </div>
+
+          <!-- ADD CHARACTER FORM -->
+          <div class="add-char-form hidden" id="add-char-form">
+            <div class="char-field-row">
+              <input type="text" id="cf-first" placeholder="First name *" />
+              <input type="text" id="cf-last" placeholder="Last name *" />
+            </div>
+            <textarea id="cf-appearance" rows="2" placeholder="Appearance * (hair, eyes, style...)"></textarea>
+            <textarea id="cf-personality" rows="2" placeholder="Personality * (traits, vibes...)"></textarea>
+            <textarea id="cf-backstory" rows="2" placeholder="Backstory (optional)"></textarea>
+            <div style="display:flex;gap:6px;">
+              <button class="btn primary sm" onclick="addCharacter()" style="flex:1;">Save Character</button>
+              <button class="btn sm danger" onclick="hideAddChar()">Cancel</button>
+            </div>
+          </div>
+
+          <!-- CHARACTER LIST -->
+          <div id="char-list">
+            <div class="empty-state">No characters yet.<br>Add some to get started!</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- STORY CENTER -->
+    <div class="story-main">
+      <div class="story-toolbar">
+        <span style="font-size:12px;color:var(--muted);">✍️ Edit directly in the text box — AI will match your writing style</span>
+        <div style="margin-left:auto;display:flex;gap:6px;">
+          <button class="btn sm" onclick="copyStory()">Copy</button>
+          <button class="btn sm danger" onclick="clearStory()">Clear Story</button>
+        </div>
+      </div>
+
+      <div class="story-body">
+        <textarea id="story-text" placeholder="Your story begins here...
+
+Type your opening scene, or hit Continue to let the AI start your story. You can edit anything at any time — the AI will follow your lead.
+
+✦ Tip: The more you write in your own style, the better the AI mirrors it."></textarea>
+      </div>
+
+      <div class="story-footer">
+        <div>
+          <div class="section-label" style="margin-bottom:6px;">🔮 Next Key Event <span style="font-weight:300;text-transform:none;letter-spacing:0;color:var(--muted);font-size:10px;">(plant future plot points — clear when they happen)</span></div>
+          <div class="next-event-row">
+            <textarea id="next-event" placeholder="e.g. They finally kiss at the rooftop party... he confesses his secret... she finds out the truth..."></textarea>
+            <button class="btn sm danger icon-only" onclick="clearNextEvent()" title="Clear event">✕</button>
+          </div>
+        </div>
+
+        <div class="continue-row">
+          <div class="token-count" id="token-estimate">~0 words in context</div>
+          <button class="btn continue-btn" id="continue-btn" onclick="continueStory()">
+            ✦ Continue Story
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL - TRACKER -->
+    <div class="panel right-panel" id="panel-right">
+      <div class="panel-header">
+        <span class="panel-title">Story Tracker</span>
+        <button class="btn sm" onclick="updateTrackerFromAI()" title="Auto-update tracker">↻ Sync</button>
+      </div>
+      <div class="panel-body">
+
+        <!-- MOOD -->
+        <div class="tracker-section">
+          <div class="tracker-section-header">
+            🌡️ Story Mood
+            <select id="mood-select" style="width:auto;font-size:11px;padding:3px 6px;" onchange="setMood(this.value)">
+              <option value="light">Light & Sweet</option>
+              <option value="tense">Tense</option>
+              <option value="dark" selected>Dark & Heavy</option>
+              <option value="chaotic">Chaotic</option>
+              <option value="hopeful">Hopeful</option>
+              <option value="heartbreak">Heartbreak</option>
+            </select>
+          </div>
+          <div class="mood-display">
+            <div class="mood-emoji" id="mood-emoji">🖤</div>
+            <div>
+              <div class="mood-text" id="mood-label">Dark & Heavy</div>
+              <div class="mood-scale" id="mood-scale"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RELATIONSHIPS -->
+        <div class="tracker-section">
+          <div class="tracker-section-header">
+            💞 Relationships
+            <button class="btn sm icon-only" onclick="addRelationship()" title="Add relationship" style="padding:2px 6px;font-size:11px;">+</button>
+          </div>
+          <div id="rel-list">
+            <div class="empty-state" style="padding:12px;">Add characters to track relationships</div>
+          </div>
+        </div>
+
+        <!-- CHARACTER STATUS -->
+        <div class="tracker-section">
+          <div class="tracker-section-header">📍 Character Status</div>
+          <div id="status-list">
+            <div class="empty-state" style="padding:12px;">No characters yet</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- BG MODAL -->
+<div class="modal-overlay" id="bg-modal">
+  <div class="modal">
+    <div class="modal-title">🖼️ Background Image</div>
+    <div class="input-group">
+      <div class="section-label">Upload Image</div>
+      <input type="file" id="bg-upload" accept="image/*" onchange="setBgImage(event)" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text2);font-size:13px;cursor:pointer;width:100%;" />
+    </div>
+    <div class="input-group">
+      <div class="section-label">Or Paste Image URL</div>
+      <input type="text" id="bg-url" placeholder="https://..." />
+    </div>
+    <div class="input-group">
+      <div class="section-label">Background Opacity</div>
+      <div class="opacity-slider-wrap">
+        <span>0%</span>
+        <input type="range" id="bg-opacity" min="0" max="100" value="15" oninput="setBgOpacity(this.value)" />
+        <span>100%</span>
+        <span id="opacity-val" style="color:var(--accent);font-weight:600;min-width:32px;">15%</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeBgModal()">Cancel</button>
+      <button class="btn primary" onclick="applyBgUrl()">Apply URL</button>
+      <button class="btn danger" onclick="removeBg()">Remove BG</button>
+    </div>
+  </div>
+</div>
+
+<!-- RELATIONSHIP MODAL -->
+<div class="modal-overlay" id="rel-modal">
+  <div class="modal">
+    <div class="modal-title">💞 Add Relationship</div>
+    <div class="input-group">
+      <div class="section-label">Character A</div>
+      <input type="text" id="rel-a" placeholder="Name..." />
+    </div>
+    <div class="input-group">
+      <div class="section-label">Character B</div>
+      <input type="text" id="rel-b" placeholder="Name..." />
+    </div>
+    <div class="input-group">
+      <div class="section-label">Relationship Type</div>
+      <input type="text" id="rel-type" placeholder="e.g. Lovers, Rivals, Best friends, Enemies..." />
+    </div>
+    <div class="input-group">
+      <div class="section-label">Affection Level (0–100)</div>
+      <input type="text" id="rel-level" placeholder="50" />
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeRelModal()">Cancel</button>
+      <button class="btn primary" onclick="saveRelationship()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+let state = {
+  characters: [],
+  relationships: [],
+  mood: 'dark',
+  panelLeft: true,
+  panelRight: true,
+  apiKey: '',
+  bgImage: ''
+};
+
+const MOODS = {
+  light:      { emoji: '☀️', label: 'Light & Sweet',  pips: 2, color: 'active-light' },
+  tense:      { emoji: '⚡', label: 'Tense',           pips: 5, color: 'active-mid' },
+  dark:       { emoji: '🖤', label: 'Dark & Heavy',    pips: 8, color: 'active-dark' },
+  chaotic:    { emoji: '🌪️', label: 'Chaotic',         pips: 7, color: 'active-mid' },
+  hopeful:    { emoji: '🌅', label: 'Hopeful',         pips: 3, color: 'active-light' },
+  heartbreak: { emoji: '💔', label: 'Heartbreak',      pips: 9, color: 'active-dark' }
+};
+
+const STYLE_PROMPTS = {
+  romantic:  'Write in a warm, emotionally rich romantic style. Focus on feelings, tender moments, longing, and connection.',
+  dramatic:  'Write in a highly dramatic style — high stakes, intense emotions, conflict, and powerful dialogue.',
+  dark:      'Write in a dark, angsty tone. Explore pain, secrets, moral complexity, and emotional tension.',
+  poetic:    'Write in a lyrical, poetic style with beautiful metaphors, vivid imagery, and flowing language.',
+  casual:    'Write in a casual, natural style — real dialogue, relatable emotions, contemporary feel.',
+  steamy:    'Write in a bold, sensual style. Do not censor adult themes. Focus on tension, desire, and intimacy.',
+  mystery:   'Write with a mysterious, atmospheric tone. Plant secrets, build suspense, leave readers guessing.'
+};
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+function init() {
+  loadFromStorage();
+  renderMood(state.mood);
+  renderCharacters();
+  renderRelationships();
+  renderCharacterStatuses();
+  updateWordCount();
+
+  // Auto-save on input
+  document.getElementById('story-text').addEventListener('input', () => {
+    saveToStorage();
+    updateWordCount();
+  });
+  document.getElementById('world-lore').addEventListener('input', saveToStorage);
+  document.getElementById('next-event').addEventListener('input', saveToStorage);
+  document.getElementById('api-key').addEventListener('input', () => {
+    state.apiKey = document.getElementById('api-key').value.trim();
+    saveToStorage();
+  });
+  document.getElementById('style-select').addEventListener('change', saveToStorage);
+}
+
+// ═══════════════════════════════════════════════════════
+// AGE GATE
+// ═══════════════════════════════════════════════════════
+function enterApp() {
+  document.getElementById('age-gate').style.display = 'none';
+  const app = document.getElementById('app');
+  app.classList.add('visible');
+  app.classList.add('fadein');
+  init();
+}
+
+function leaveApp() {
+  window.location.href = 'https://www.google.com';
+}
+
+// ═══════════════════════════════════════════════════════
+// LOCAL STORAGE
+// ═══════════════════════════════════════════════════════
+function saveToStorage() {
+  const data = {
+    story: document.getElementById('story-text').value,
+    lore: document.getElementById('world-lore').value,
+    nextEvent: document.getElementById('next-event').value,
+    style: document.getElementById('style-select').value,
+    apiKey: document.getElementById('api-key').value,
+    characters: state.characters,
+    relationships: state.relationships,
+    mood: state.mood,
+    bgImage: state.bgImage,
+    bgOpacity: state.bgOpacity !== undefined ? state.bgOpacity : 15
+  };
+  try { localStorage.setItem('inkbound_save', JSON.stringify(data)); } catch(e) {}
+}
+
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem('inkbound_save');
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (data.story) document.getElementById('story-text').value = data.story;
+    if (data.lore) document.getElementById('world-lore').value = data.lore;
+    if (data.nextEvent) document.getElementById('next-event').value = data.nextEvent;
+    if (data.style) document.getElementById('style-select').value = data.style;
+    if (data.apiKey) document.getElementById('api-key').value = data.apiKey;
+    if (data.characters) state.characters = data.characters;
+    if (data.relationships) state.relationships = data.relationships;
+    if (data.mood) state.mood = data.mood;
+    if (data.bgImage) applyBg(data.bgImage);
+    if (data.bgOpacity !== undefined) { state.bgOpacity = data.bgOpacity; setBgOpacity(data.bgOpacity); }
+  } catch(e) {}
+}
+
+function clearAll() {
+  if (!confirm('Clear everything? This will delete your story, characters, and settings.')) return;
+  localStorage.removeItem('inkbound_save');
+  location.reload();
+}
+
+function clearStory() {
+  if (!confirm('Clear the story text?')) return;
+  document.getElementById('story-text').value = '';
+  saveToStorage();
+  updateWordCount();
+}
+
+function clearNextEvent() {
+  document.getElementById('next-event').value = '';
+  saveToStorage();
+}
+
+// ═══════════════════════════════════════════════════════
+// CHARACTERS
+// ═══════════════════════════════════════════════════════
+function showAddChar() { document.getElementById('add-char-form').classList.remove('hidden'); }
+function hideAddChar() { document.getElementById('add-char-form').classList.add('hidden'); }
+
+function addCharacter() {
+  const first = document.getElementById('cf-first').value.trim();
+  const last = document.getElementById('cf-last').value.trim();
+  const appearance = document.getElementById('cf-appearance').value.trim();
+  const personality = document.getElementById('cf-personality').value.trim();
+  const backstory = document.getElementById('cf-backstory').value.trim();
+
+  if (!first || !last || !appearance || !personality) {
+    showToast('Please fill in all required fields', 'error');
+    return;
+  }
+
+  state.characters.push({
+    id: Date.now(),
+    first, last, appearance, personality, backstory,
+    status: 'alive',
+    location: '',
+    emotion: ''
+  });
+
+  // Clear form
+  ['cf-first','cf-last','cf-appearance','cf-personality','cf-backstory'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  hideAddChar();
+  saveToStorage();
+  renderCharacters();
+  renderCharacterStatuses();
+  showToast(`${first} ${last} added!`, 'success');
+}
+
+function removeCharacter(id) {
+  state.characters = state.characters.filter(c => c.id !== id);
+  saveToStorage();
+  renderCharacters();
+  renderCharacterStatuses();
+}
+
+function renderCharacters() {
+  const list = document.getElementById('char-list');
+  if (state.characters.length === 0) {
+    list.innerHTML = '<div class="empty-state">No characters yet.<br>Add some to get started!</div>';
+    return;
+  }
+  list.innerHTML = state.characters.map(c => `
+    <div class="char-card fadein">
+      <div class="char-card-header">
+        <span class="char-name">${c.first} ${c.last}</span>
+        <button class="btn sm danger icon-only" onclick="removeCharacter(${c.id})">✕</button>
+      </div>
+      <div class="char-fields">
+        <div><span style="color:var(--muted);font-size:11px;">LOOK </span><span style="font-size:12px;color:var(--text2);">${c.appearance}</span></div>
+        <div><span style="color:var(--muted);font-size:11px;">VIBE </span><span style="font-size:12px;color:var(--text2);">${c.personality}</span></div>
+        ${c.backstory ? `<div><span style="color:var(--muted);font-size:11px;">LORE </span><span style="font-size:12px;color:var(--text2);">${c.backstory}</span></div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// MOOD
+// ═══════════════════════════════════════════════════════
+function setMood(val) {
+  state.mood = val;
+  renderMood(val);
+  saveToStorage();
+}
+
+function renderMood(val) {
+  const m = MOODS[val] || MOODS.dark;
+  document.getElementById('mood-emoji').textContent = m.emoji;
+  document.getElementById('mood-label').textContent = m.label;
+  document.getElementById('mood-select').value = val;
+  const scale = document.getElementById('mood-scale');
+  scale.innerHTML = '';
+  for (let i = 0; i < 10; i++) {
+    const pip = document.createElement('div');
+    pip.className = 'mood-pip' + (i < m.pips ? ' ' + m.color : '');
+    scale.appendChild(pip);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// RELATIONSHIPS
+// ═══════════════════════════════════════════════════════
+function addRelationship() { document.getElementById('rel-modal').classList.add('open'); }
+function closeRelModal() { document.getElementById('rel-modal').classList.remove('open'); }
+
+function saveRelationship() {
+  const a = document.getElementById('rel-a').value.trim();
+  const b = document.getElementById('rel-b').value.trim();
+  const type = document.getElementById('rel-type').value.trim();
+  const level = parseInt(document.getElementById('rel-level').value) || 50;
+
+  if (!a || !b || !type) { showToast('Fill in all fields', 'error'); return; }
+
+  state.relationships.push({ id: Date.now(), a, b, type, level: Math.min(100, Math.max(0, level)) });
+  ['rel-a','rel-b','rel-type','rel-level'].forEach(id => document.getElementById(id).value = '');
+  closeRelModal();
+  saveToStorage();
+  renderRelationships();
+  showToast('Relationship added!', 'success');
+}
+
+function removeRel(id) {
+  state.relationships = state.relationships.filter(r => r.id !== id);
+  saveToStorage();
+  renderRelationships();
+}
+
+function renderRelationships() {
+  const list = document.getElementById('rel-list');
+  if (state.relationships.length === 0) {
+    list.innerHTML = '<div class="empty-state" style="padding:12px;">No relationships tracked yet</div>';
+    return;
+  }
+  list.innerHTML = state.relationships.map(r => `
+    <div class="tracker-item fadein">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="tracker-item-name">${r.a} & ${r.b}</div>
+        <button class="btn sm danger icon-only" onclick="removeRel(${r.id})" style="padding:2px 5px;font-size:10px;">✕</button>
+      </div>
+      <div class="tracker-item-val" style="font-style:italic;">${r.type}</div>
+      <div class="rel-bar-wrap">
+        <div class="rel-bar-track"><div class="rel-bar-fill" style="width:${r.level}%"></div></div>
+        <div class="rel-bar-label">${r.level}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// CHARACTER STATUS
+// ═══════════════════════════════════════════════════════
+function renderCharacterStatuses() {
+  const list = document.getElementById('status-list');
+  if (state.characters.length === 0) {
+    list.innerHTML = '<div class="empty-state" style="padding:12px;">No characters yet</div>';
+    return;
+  }
+  list.innerHTML = state.characters.map(c => `
+    <div class="tracker-item">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+        <div class="tracker-item-name">${c.first} ${c.last}</div>
+        <span class="status-badge ${c.status || 'alive'}">● ${c.status || 'alive'}</span>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
+        <input type="text" value="${c.emotion || ''}" placeholder="Emotion..." style="flex:1;min-width:80px;font-size:11px;padding:4px 7px;" onchange="updateCharField(${c.id},'emotion',this.value)" />
+        <input type="text" value="${c.location || ''}" placeholder="Location..." style="flex:1;min-width:80px;font-size:11px;padding:4px 7px;" onchange="updateCharField(${c.id},'location',this.value)" />
+      </div>
+      <select style="font-size:11px;padding:3px 6px;margin-top:4px;" onchange="updateCharField(${c.id},'status',this.value)">
+        <option value="alive" ${c.status==='alive'?'selected':''}>Alive</option>
+        <option value="dead" ${c.status==='dead'?'selected':''}>Dead</option>
+        <option value="unknown" ${c.status==='unknown'?'selected':''}>Unknown</option>
+      </select>
+    </div>
+  `).join('');
+}
+
+function updateCharField(id, field, value) {
+  const c = state.characters.find(x => x.id === id);
+  if (c) { c[field] = value; saveToStorage(); renderCharacterStatuses(); }
+}
+
+// ═══════════════════════════════════════════════════════
+// PANELS
+// ═══════════════════════════════════════════════════════
+function togglePanel(side) {
+  const layout = document.getElementById('layout');
+  if (side === 'left') {
+    state.panelLeft = !state.panelLeft;
+    document.getElementById('panel-left').classList.toggle('hidden', !state.panelLeft);
+    document.getElementById('btn-left').classList.toggle('active', state.panelLeft);
+  } else {
+    state.panelRight = !state.panelRight;
+    document.getElementById('panel-right').classList.toggle('hidden', !state.panelRight);
+    document.getElementById('btn-right').classList.toggle('active', state.panelRight);
+  }
+
+  const hideLeft = !state.panelLeft;
+  const hideRight = !state.panelRight;
+  layout.classList.toggle('hide-left', hideLeft && !hideRight);
+  layout.classList.toggle('hide-right', !hideLeft && hideRight);
+  layout.classList.toggle('hide-both', hideLeft && hideRight);
+  layout.classList.remove('hide-left', 'hide-right', 'hide-both');
+  if (hideLeft && hideRight) layout.classList.add('hide-both');
+  else if (hideLeft) layout.classList.add('hide-left');
+  else if (hideRight) layout.classList.add('hide-right');
+}
+
+// ═══════════════════════════════════════════════════════
+// BACKGROUND
+// ═══════════════════════════════════════════════════════
+function openBgModal() { document.getElementById('bg-modal').classList.add('open'); }
+function closeBgModal() { document.getElementById('bg-modal').classList.remove('open'); }
+
+function setBgImage(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => { applyBg(e.target.result); closeBgModal(); };
+  reader.readAsDataURL(file);
+}
+
+function applyBgUrl() {
+  const url = document.getElementById('bg-url').value.trim();
+  if (!url) return;
+  applyBg(url);
+  closeBgModal();
+}
+
+function setBgOpacity(val) {
+  document.documentElement.style.setProperty('--bg-opacity', val / 100);
+  document.getElementById('opacity-val').textContent = val + '%';
+  state.bgOpacity = val;
+  saveToStorage();
+}
+
+function applyBg(src) {
+  state.bgImage = src;
+  const el = document.getElementById('bg-image');
+  el.style.backgroundImage = `url('${src}')`;
+  el.classList.add('active');
+  // Restore saved opacity
+  if (state.bgOpacity !== undefined) {
+    document.documentElement.style.setProperty('--bg-opacity', state.bgOpacity / 100);
+    const slider = document.getElementById('bg-opacity');
+    if (slider) { slider.value = state.bgOpacity; document.getElementById('opacity-val').textContent = state.bgOpacity + '%'; }
+  }
+  saveToStorage();
+}
+
+function removeBg() {
+  state.bgImage = '';
+  const el = document.getElementById('bg-image');
+  el.style.backgroundImage = '';
+  el.classList.remove('active');
+  closeBgModal();
+  saveToStorage();
+}
+
+// ═══════════════════════════════════════════════════════
+// UTILITY
+// ═══════════════════════════════════════════════════════
+function toggleKeyVisibility() {
+  const input = document.getElementById('api-key');
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+function copyStory() {
+  const text = document.getElementById('story-text').value;
+  if (!text) { showToast('Nothing to copy!', 'error'); return; }
+  navigator.clipboard.writeText(text).then(() => showToast('Story copied!', 'success'));
+}
+
+function updateWordCount() {
+  const text = document.getElementById('story-text').value;
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  document.getElementById('token-estimate').textContent = `~${words} words in story`;
+}
+
+function showToast(msg, type = '') {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.className = 'toast show ' + type;
+  setTimeout(() => { toast.className = 'toast'; }, 3000);
+}
+
+function setStatus(state, text) {
+  const dot = document.getElementById('status-dot');
+  const label = document.getElementById('status-text');
+  dot.className = 'status-dot ' + state;
+  label.textContent = text;
+}
+
+// ═══════════════════════════════════════════════════════
+// AI — CONTINUE STORY
+// ═══════════════════════════════════════════════════════
+async function continueStory() {
+  const apiKey = document.getElementById('api-key').value.trim();
+  if (!apiKey) {
+    showToast('Enter your OpenRouter API key first!', 'error');
+    return;
+  }
+
+  const storyText = document.getElementById('story-text').value.trim();
+  const lore = document.getElementById('world-lore').value.trim();
+  const nextEvent = document.getElementById('next-event').value.trim();
+  const style = document.getElementById('style-select').value;
+  const stylePrompt = STYLE_PROMPTS[style] || STYLE_PROMPTS.romantic;
+
+  const btn = document.getElementById('continue-btn');
+  btn.disabled = true;
+  btn.innerHTML = '✦ Writing<span class="thinking-dots"></span>';
+  setStatus('thinking', 'Writing...');
+
+  // Build system prompt
+  let systemPrompt = `You are a creative fiction writer for an interactive story engine. Your job is to continue the story naturally.
+
+WRITING STYLE: ${stylePrompt}
+
+IMPORTANT RULES:
+- Continue the story directly from where it left off. Do NOT summarize or restart.
+- Write 2-4 paragraphs of new story content.
+- Match the exact writing style, tone, and voice of the existing text.
+- Do NOT include any commentary, notes, or meta-text — ONLY story content.
+- Do NOT wrap text in quotes or asterisks.
+${nextEvent ? `- Work toward this upcoming plot point naturally (but don't rush it): ${nextEvent}` : ''}
+`;
+
+  if (lore) systemPrompt += `\nWORLD/LORE:\n${lore}\n`;
+
+  if (state.characters.length > 0) {
+    systemPrompt += '\nCHARACTERS:\n';
+    state.characters.forEach(c => {
+      systemPrompt += `- ${c.first} ${c.last}: ${c.appearance}. Personality: ${c.personality}.${c.backstory ? ` Background: ${c.backstory}` : ''} Status: ${c.status || 'alive'}.${c.emotion ? ` Current emotion: ${c.emotion}.` : ''}${c.location ? ` Location: ${c.location}.` : ''}\n`;
+    });
+  }
+
+  if (state.relationships.length > 0) {
+    systemPrompt += '\nRELATIONSHIPS:\n';
+    state.relationships.forEach(r => {
+      systemPrompt += `- ${r.a} & ${r.b}: ${r.type} (affection: ${r.level}/100)\n`;
+    });
+  }
+
+  const moodInfo = MOODS[state.mood];
+  systemPrompt += `\nCURRENT STORY MOOD: ${moodInfo.label} — reflect this in your writing.\n`;
+
+  const userPrompt = storyText
+    ? `Here is the story so far. Continue it:\n\n${storyText}`
+    : 'Begin the story. Write the opening scene.';
+
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': window.location.href,
+        'X-Title': 'Inkbound Story Engine'
+      },
+      body: JSON.stringify({
+        model: 'meta-llama/llama-3.1-8b-instruct:free',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        max_tokens: 600,
+        temperature: 0.85
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || `API error ${response.status}`);
+    }
+
+    const data = await response.json();
+    const newText = data.choices?.[0]?.message?.content?.trim();
+
+    if (!newText) throw new Error('Empty response from AI');
+
+    const storyBox = document.getElementById('story-text');
+    storyBox.value = storyText
+      ? storyText + '\n\n' + newText
+      : newText;
+
+    saveToStorage();
+    updateWordCount();
+    storyBox.scrollTop = storyBox.scrollHeight;
+    setStatus('done', 'Done');
+    setTimeout(() => setStatus('', 'Ready'), 3000);
+
+  } catch (err) {
+    console.error(err);
+    setStatus('error', 'Error');
+    let errMsg = err.message;
+    if (errMsg.includes('Failed to fetch') || errMsg.includes('NetworkError') || errMsg.includes('Load failed')) {
+      errMsg = 'Connection blocked. Open this file from a web server or GitHub Pages — browsers block API calls from local files.';
+    } else if (errMsg.includes('401') || errMsg.includes('Unauthorized')) {
+      errMsg = 'Invalid API key. Double-check your OpenRouter key.';
+    } else if (errMsg.includes('429')) {
+      errMsg = 'Rate limit hit. Wait a moment and try again.';
+    }
+    showToast('Error: ' + errMsg, 'error');
+    setTimeout(() => setStatus('', 'Ready'), 4000);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '✦ Continue Story';
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// AUTO-UPDATE TRACKER (AI-powered)
+// ═══════════════════════════════════════════════════════
+async function updateTrackerFromAI() {
+  const apiKey = document.getElementById('api-key').value.trim();
+  const storyText = document.getElementById('story-text').value.trim();
+  if (!apiKey || !storyText || state.characters.length === 0) {
+    showToast('Need API key, story text, and characters to sync', 'error');
+    return;
+  }
+
+  showToast('Syncing tracker...', '');
+  setStatus('thinking', 'Syncing...');
+
+  const charNames = state.characters.map(c => `${c.first} ${c.last}`).join(', ');
+
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': window.location.href,
+        'X-Title': 'Inkbound Story Engine'
+      },
+      body: JSON.stringify({
+        model: 'meta-llama/llama-3.1-8b-instruct:free',
+        messages: [{
+          role: 'user',
+          content: `Based on this story excerpt, return ONLY a JSON object (no other text) with:
+{
+  "mood": one of: light/tense/dark/chaotic/hopeful/heartbreak,
+  "characters": [{"name": "First Last", "emotion": "current emotion in 2-3 words", "location": "where they are in 2-3 words", "status": "alive/dead/unknown"}]
+}
+
+Characters to track: ${charNames}
+
+Story:
+${storyText.slice(-2000)}`
+        }],
+        max_tokens: 300,
+        temperature: 0.3
+      })
+    });
+
+    const data = await response.json();
+    const raw = data.choices?.[0]?.message?.content?.trim();
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('No JSON in response');
+
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    if (parsed.mood) { state.mood = parsed.mood; renderMood(parsed.mood); }
+
+    if (parsed.characters) {
+      parsed.characters.forEach(pc => {
+        const found = state.characters.find(c =>
+          `${c.first} ${c.last}`.toLowerCase() === pc.name.toLowerCase()
+        );
+        if (found) {
+          if (pc.emotion) found.emotion = pc.emotion;
+          if (pc.location) found.location = pc.location;
+          if (pc.status) found.status = pc.status;
+        }
+      });
+      renderCharacterStatuses();
+    }
+
+    saveToStorage();
+    setStatus('done', 'Synced!');
+    showToast('Tracker synced!', 'success');
+    setTimeout(() => setStatus('', 'Ready'), 3000);
+
+  } catch(err) {
+    setStatus('error', 'Sync failed');
+    showToast('Sync failed: ' + err.message, 'error');
+    setTimeout(() => setStatus('', 'Ready'), 3000);
+  }
+}
+
+// Background image element
+document.addEventListener('DOMContentLoaded', () => {
+  const bgEl = document.createElement('div');
+  bgEl.id = 'bg-image';
+  document.body.insertBefore(bgEl, document.body.firstChild);
+});
+</script>
+</body>
+</html>
